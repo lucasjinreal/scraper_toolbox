@@ -35,17 +35,18 @@ def save_image(image_data, save_prefix, save_dir, index):
         os.mkdir(save_dir)
     if save_prefix:
         if index:
-            save_file = os.path.join(save_dir, save_prefix + str(index) + '.jpg')
+            save_file = os.path.join(save_dir, save_prefix + '_' + str(index) + '.jpg')
         else:
             file_name = ''.join(random.sample('AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789', 16))
-            save_file = os.path.join(save_dir, save_prefix + file_name + '.jpg')
+            save_file = os.path.join(save_dir, save_prefix + '_' + file_name + '.jpg')
     else:
         if index:
-            save_file = os.path.join(save_dir, str(index) + '.jpg')
+            save_file = os.path.join(save_dir, '_' + str(index) + '.jpg')
         else:
             file_name = ''.join(random.sample('AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789', 16))
-            save_file = os.path.join(save_dir, file_name + '.jpg')
+            save_file = os.path.join(save_dir, '_' + file_name + '.jpg')
     with open(save_file, 'wb') as f:
+        print('\n--- image saved into {}'.format(os.path.basename(save_file)))
         f.write(image_data)
 
 
@@ -68,22 +69,27 @@ def get_images_and_save(query_words, root_path, max_number):
                       "ct=201326592&fp=result&queryWord={word}&cl=2&lm=-1&ie=utf-8&oe=utf-8&st=-1&ic=0" \
                       "&word={word}&face=0&istype=2nc=1&pn={pn}&rn=60"
         urls = (url_pattern.format(word=query_word, pn=p) for p in range(0, max_number, 30))
-        for url in urls:
-            print(url)
-            html = requests.get(url).text
-            image_urls = re.findall('"objURL":"(.*?)",', html, re.S)
-            for i, image_url in enumerate(image_urls):
-                try:
-                    print('[INFO] decoding url..')
-                    image_url = decode_url(image_url)
-                    print(image_url)
-                    print('[INFO] solving %d image' % i)
-                    image = requests.get(image_url, stream=False, timeout=10).content
-                    save_dir = os.path.join(os.path.abspath(root_path), query_words[k])
-                    save_image(image, None, save_dir, i)
-                except requests.exceptions.ConnectionError:
-                    print('[INFO] url: %s can not found image.' % image_url)
-                    continue
+        for i_u, url in enumerate(urls):
+            try:
+                print(url)
+                html = requests.get(url).text
+                image_urls = re.findall('"objURL":"(.*?)",', html, re.S)
+                for i, image_url in enumerate(image_urls):
+                    try:
+                        print('[INFO] decoding url..')
+                        image_url = decode_url(image_url)
+                        print(image_url)
+                        print('[INFO] solving %d image' % i)
+                        image = requests.get(image_url, stream=False, timeout=10).content
+                        save_dir = os.path.join(os.path.abspath(root_path), query_words[k])
+                        save_image(image, query_word.replace(' ', ''), save_dir, str(i_u)+str(i))
+                    except requests.exceptions.ConnectionError:
+                        print('[INFO] url: %s can not found image.' % image_url)
+                        continue
+            except Exception as e:
+                print(e)
+                print('[ERROR] pass this url.')
+                pass
 
 
 def parse_args():
@@ -93,7 +99,7 @@ def parse_args():
     parser.add_argument('-q', '--query', nargs='+', help=help_)
 
     help_ = 'set save root dir'
-    parser.add_argument('-d', '--dir', help=help_)
+    parser.add_argument('-d', '--dir', default='./', help=help_)
 
     help_ = 'max download image number, default is 80000'
     parser.add_argument('-m', '--max', type=int, default=80000, help=help_)
